@@ -1,0 +1,43 @@
+* File Transformation Utility Using Builder Pattern
+  Demonstrates the implementation of the Builder pattern for simple file processing application - 
+  that involves copying and transforming files from one directory to another based on specific file extensions (*.csv files in this case).
+
+** Directory Structure
+   :PROPERTIES:
+   :CUSTOM_ID: dir_structure
+   :END:
+   - /example/input/    : Source directory containing CSV files to be processed.
+   - /example/output/   : Destination directory where processed files will be saved.
+
+** Key Components
+   :PROPERTIES:
+   :CUSTOM_ID: key_components
+   :END:
+
+*** Transformer Trait
+    Defines a method for chunk based transforming data files (needs further improvement on read)
+
+*** EipBuilder Struct
+    Utilizes the Builder pattern to facilitate the setup of a file processing pipeline with customizable configurations:
+    - location: Path to the source directory.
+    - extension: Filter for file extensions.
+    - transformers: Vector of transformers applied sequentially to each file.
+    - destination: Path to the destination directory.
+
+** Methods in EipBuilder
+   :PROPERTIES:
+   :CUSTOM_ID: methods
+   :END:
+   - start(location: &str): Initializes the builder with the source directory path.
+   - extension(ext: &str): Sets the file extension filter.
+   - stream(): Prepares for data streaming; currently serves as a conceptual placeholder.
+   - then(transformer: Arc<dyn Transformer>): Appends a transformer to the pipeline.
+   - to(location: &str): Defines the output directory.
+   - run(): Executes the pipeline, processing and copying files as configured.
+
+** Usage
+   :PROPERTIES:
+   :CUSTOM_ID: usage
+   :END:
+   `walkdir` crate is a dependency. Update the input and output paths in the `main` function accordingly. 
+   Build and execute the program to start processing CSV files.
