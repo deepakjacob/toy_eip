@@ -28,11 +28,11 @@
    :PROPERTIES:
    :CUSTOM_ID: methods
    :END:
-   - start(location: &str): Initializes the builder with the source directory path.
+   - start(location: PathBuf): Initializes the builder with the source directory path.
    - extension(ext: &str): Sets the file extension filter.
    - stream(): Prepares for data streaming; currently serves as a conceptual placeholder.
    - then(transformer: Arc<dyn Transformer>): Appends a transformer to the pipeline.
-   - to(location: &str): Defines the output directory.
+   - to(location: PathBuf): Defines the output directory.
    - run(): Executes the pipeline, processing and copying files as configured.
 
 ** Usage

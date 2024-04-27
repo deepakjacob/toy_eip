@@ -1,4 +1,5 @@
 use std::{
+    env,
     fs::File,
     io::{self, BufWriter, Read, Write},
     path::PathBuf,
@@ -46,9 +47,9 @@ struct Route {
 }
 
 impl Route {
-    fn start(location: &str) -> Self {
+    fn start(location: PathBuf) -> Self {
         Self {
-            location: PathBuf::from(location),
+            location,
             extension: None,
             transformers: Vec::new(),
             destination: PathBuf::new(),
@@ -69,8 +70,8 @@ impl Route {
         self
     }
 
-    fn to(mut self, location: &str) -> Self {
-        self.destination = PathBuf::from(location);
+    fn to(mut self, location: PathBuf) -> Self {
+        self.destination = location;
         self
     }
 }
@@ -127,14 +128,16 @@ impl EIP {
 
 fn main() -> io::Result<()> {
     let transformer = Arc::new(FileTransformer::new(1024));
+    let current_dir = env::current_dir().expect("failed to get current directory");
+
+    let input_dir = current_dir.join("input");
+    let output_dir = current_dir.join("output");
 
     EIP::new()
-        .routes(vec![Route::start(
-            "/home/jd/development/rust/toy_eip/input",
-        )
-        .extension("csv")
-        .stream()
-        .then(transformer)
-        .to("/home/jd/development/rust/toy_eip/output")])
+        .routes(vec![Route::start(input_dir)
+            .extension("csv")
+            .stream()
+            .then(transformer)
+            .to(output_dir)])
         .run()
 }
