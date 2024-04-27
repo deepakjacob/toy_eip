@@ -38,14 +38,14 @@ impl Transformer for FileTransformer {
     }
 }
 
-struct EipBuilder {
+struct Route {
     location: PathBuf,
     extension: Option<String>,
     transformers: Vec<Arc<dyn Transformer>>,
     destination: PathBuf,
 }
 
-impl EipBuilder {
+impl Route {
     fn start(location: &str) -> Self {
         Self {
             location: PathBuf::from(location),
@@ -73,36 +73,52 @@ impl EipBuilder {
         self.destination = PathBuf::from(location);
         self
     }
+}
+
+struct EIP {
+    routes: Vec<Route>,
+}
+
+impl EIP {
+    fn new() -> Self {
+        Self { routes: Vec::new() }
+    }
+    fn routes(mut self, r: Vec<Route>) -> Self {
+        self.routes = r;
+        self
+    }
 
     fn run(&self) -> io::Result<()> {
-        let extension_filter = self.extension.clone().unwrap_or_else(|| "*".to_string());
-        let destination = &self.destination;
+        for route in &self.routes {
+            let extension_filter = &route.extension.clone().unwrap_or_else(|| "*".to_string());
+            let destination = &route.destination;
 
-        for entry in WalkDir::new(&self.location)
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_file())
-            .filter(|e| {
-                e.path()
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .map(|ext| ext == extension_filter.trim_start_matches('*'))
-                    .unwrap_or(false)
-            })
-        {
-            let mut file = File::open(entry.path())?;
-            let mut contents = Vec::new();
-            file.read_to_end(&mut contents)?;
+            for entry in WalkDir::new(&route.location)
+                .into_iter()
+                .filter_map(Result::ok)
+                .filter(|e| e.file_type().is_file())
+                .filter(|e| {
+                    e.path()
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .map(|ext| ext == extension_filter.trim_start_matches('*'))
+                        .unwrap_or(false)
+                })
+            {
+                let mut file = File::open(entry.path())?;
+                let mut contents = Vec::new();
+                file.read_to_end(&mut contents)?;
 
-            let mut transformed_data = TransformedData { data: contents };
+                let mut transformed_data = TransformedData { data: contents };
 
-            for transformer in &self.transformers {
-                transformed_data = transformer.transform(&transformed_data.data)?;
+                for transformer in &route.transformers {
+                    transformed_data = transformer.transform(&transformed_data.data)?;
+                }
+
+                let output_path = destination.join(entry.file_name());
+                let mut output_file = BufWriter::new(File::create(output_path)?);
+                output_file.write_all(&transformed_data.data)?;
             }
-
-            let output_path = destination.join(entry.file_name());
-            let mut output_file = BufWriter::new(File::create(output_path)?);
-            output_file.write_all(&transformed_data.data)?;
         }
 
         Ok(())
@@ -112,10 +128,13 @@ impl EipBuilder {
 fn main() -> io::Result<()> {
     let transformer = Arc::new(FileTransformer::new(1024));
 
-    EipBuilder::start("/home/jd/development/rust/toy_eip/input")
+    EIP::new()
+        .routes(vec![Route::start(
+            "/home/jd/development/rust/toy_eip/input",
+        )
         .extension("csv")
         .stream()
         .then(transformer)
-        .to("/home/jd/development/rust/toy_eip/output")
+        .to("/home/jd/development/rust/toy_eip/output")])
         .run()
 }
