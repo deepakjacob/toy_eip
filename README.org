@@ -1,43 +1,80 @@
-* File Transformation Utility Using Builder Pattern
-  Demonstrates the implementation of the Builder pattern for simple file processing application - 
-  that involves copying and transforming files from one directory to another based on specific file extensions (*.csv files in this case).
+* EIP Program Structure
+  - Detailed ASCII diagram representing the major components and their relationships.
 
-** Directory Structure
-   :PROPERTIES:
-   :CUSTOM_ID: dir_structure
-   :END:
-   - /example/input/    : Source directory containing CSV files to be processed.
-   - /example/output/   : Destination directory where processed files will be saved.
+** ASCII Diagram
+#+BEGIN_EXAMPLE
++---------------------------------+
+|              EIP                |
++---------------------------------+
+| +-- routes: Vec<Route>          |
+| +-- file_paths: Vec<String>     |
+| +-- run() -> io::Result<()>     |
+| +-- verify_route_destination()  |
++---------------------------------+
+            |
+            | contains
+            v
++-----------------------------------------------------+
+|             Route                                   |
++-----------------------------------------------------+
+| +-- source: Url                                     |
+| +-- extension: Option<String>                       |
+| +-- transformers: Vec<Arc<dyn Transformer>>         |
+| +-- destination: Option<Url>                        | 
+| +-- start(location: &str) -> Self                   |
+| +-- extension(ext: &str) -> Self                    |
+| +-- stream() -> Self                                |
+| +-- then(transformer: Arc<dyn Transformer>) -> Self |
+| +-- to(location: &str) -> Self                      | 
++-----------------------------------------------------+
+            |
+            | uses
+            v
++------------------------------------------------------------+
+|        FileTransformer                                     | 
++------------------------------------------------------------+
+| +-- chunk_size: usize                                      |
+| +-- new(chunk_size: usize) -> Self                         |
+| +-- transform(input: &[u8]) -> io::Result<TransformedData> |
++------------------------------------------------------------+
+            ^
+            | implements
++------------------------------------------------------------+
+|        Transformer trait                                   |
++------------------------------------------------------------+
+| +-- transform(input: &[u8]) -> io::Result<TransformedData> |
++------------------------------------------------------------+
 
-** Key Components
-   :PROPERTIES:
-   :CUSTOM_ID: key_components
-   :END:
++---------------------------------------------------+
+|          FileConsumer                             |
++---------------------------------------------------+
+| +-- consume(route: &Route) -> io::Result<Vec<u8>> |
++---------------------------------------------------+
+            ^
+            | implements
++---------------------------------------------------+
+|         Consumer trait                            |
++---------------------------------------------------+
+| +-- consume(route: &Route) -> io::Result<Vec<u8>> |
++---------------------------------------------------+
+#+END_EXAMPLE
 
-*** Transformer Trait
-    Defines a method for chunk based transforming data files (needs further improvement on read)
+** Explanation
+   - *EIP*: Central structure handling routes and file monitoring.
+     - Uses the =Route= struct to manage details about each transformation and routing operation.
 
-*** EipBuilder Struct
-    Utilizes the Builder pattern to facilitate the setup of a file processing pipeline with customizable configurations:
-    - location: Path to the source directory.
-    - extension: Filter for file extensions.
-    - transformers: Vector of transformers applied sequentially to each file.
-    - destination: Path to the destination directory.
+   - *Route*:
+     - Represents a transformation route containing source, optional extension filtering, transformers, and a destination.
+     - Uses transformers (like =FileTransformer=) and potentially consumers (like =FileConsumer=) to process data.
 
-** Methods in EipBuilder
-   :PROPERTIES:
-   :CUSTOM_ID: methods
-   :END:
-   - start(location: PathBuf): Initializes the builder with the source directory path.
-   - extension(ext: &str): Sets the file extension filter.
-   - stream(): Prepares for data streaming; currently serves as a conceptual placeholder.
-   - then(transformer: Arc<dyn Transformer>): Appends a transformer to the pipeline.
-   - to(location: PathBuf): Defines the output directory.
-   - run(): Executes the pipeline, processing and copying files as configured.
+   - *FileTransformer*:
+     - Implements the =Transformer= trait to transform data based on the chunk size.
 
-** Usage
-   :PROPERTIES:
-   :CUSTOM_ID: usage
-   :END:
-   `walkdir` crate is a dependency. Update the input and output paths in the `main` function accordingly. 
-   Build and execute the program to start processing CSV files.
+   - *Transformer trait*:
+     - Interface that all transformers must implement to be usable in the =Route=.
+
+   - *FileConsumer*:
+     - Implements the =Consumer= trait to consume or process the output of a route.
+
+   - *Consumer trait*:
+     - Interface that all consumers must implement to be usable.
