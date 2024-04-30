@@ -138,34 +138,35 @@ impl EIP {
                 );
             }
         }
-        let (tx, rx) = channel();
+        // run only if there are file protocol present in scheme list
+        if self.file_paths.len() > 0 {
+            self.run_for_file()?;
+        }
 
+        Ok(())
+    }
+
+    fn run_for_file(&mut self) -> Result<(), io::Error> {
+        let (tx, rx) = channel();
         let mut watcher =
             notify::recommended_watcher(move |res: notify::Result<Event>| match res {
-                Ok(event) => {
-                    // println!("new event {:?}", event);
-                    match event.kind {
-                        notify::EventKind::Create(_) => {
-                            if let Err(e) = tx.send(event) {
-                                debug!("error sending event for {:?}", e);
-                            }
-                        }
-                        _ => {
-                            // We are not interested in any thing other than Create
+                Ok(event) => match event.kind {
+                    notify::EventKind::Create(_) => {
+                        if let Err(e) = tx.send(event) {
+                            debug!("error sending event for {:?}", e);
                         }
                     }
-                }
+                    _ => {}
+                },
                 Err(e) => debug!("err       {:?}", e),
             })
             .unwrap();
-
         for folder in &self.file_paths {
             watcher
                 .watch(Path::new(folder), notify::RecursiveMode::Recursive)
                 .unwrap();
         }
-
-        loop {
+        Ok(loop {
             match rx.recv() {
                 Ok(event) => {
                     if let Some(file_name) = event.paths.get(0) {
@@ -197,9 +198,7 @@ impl EIP {
                     break;
                 }
             }
-        }
-
-        Ok(())
+        })
     }
 
     fn verify_route_destination(&self, route: &Route) {
