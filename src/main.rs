@@ -4,11 +4,14 @@ use std::{
     fs::File,
     io::{self, Read, Write},
     path::Path,
-    sync::{mpsc::channel, Arc},
+    sync::{
+        mpsc::{channel, Receiver},
+        Arc,
+    },
 };
 
 use log::debug;
-use notify::{Event, Watcher};
+use notify::{Event, INotifyWatcher, Watcher};
 use url::Url;
 
 struct TransformedData {
@@ -131,41 +134,24 @@ impl EIP {
             let source = &route.source;
             let source_scheme = (&route.source).scheme();
             if source_scheme == "file" {
+                let (rx, mut watcher) = self.get_plaform_file_listener();
                 self.file_paths.push(source.path().to_string());
                 debug!(
                     "added folder {} to the watch list",
                     source.path().to_string()
                 );
+
+                watcher
+                    .watch(Path::new(source.path()), notify::RecursiveMode::Recursive)
+                    .unwrap();
             }
-        }
-        // run only if there are file protocol present in scheme list
-        if self.file_paths.len() > 0 {
-            self.run_for_file()?;
         }
 
         Ok(())
     }
 
     fn run_for_file(&mut self) -> Result<(), io::Error> {
-        let (tx, rx) = channel();
-        let mut watcher =
-            notify::recommended_watcher(move |res: notify::Result<Event>| match res {
-                Ok(event) => match event.kind {
-                    notify::EventKind::Create(_) => {
-                        if let Err(e) = tx.send(event) {
-                            debug!("error sending event for {:?}", e);
-                        }
-                    }
-                    _ => {}
-                },
-                Err(e) => debug!("err       {:?}", e),
-            })
-            .unwrap();
-        for folder in &self.file_paths {
-            watcher
-                .watch(Path::new(folder), notify::RecursiveMode::Recursive)
-                .unwrap();
-        }
+        for folder in &self.file_paths {}
         Ok(loop {
             match rx.recv() {
                 Ok(event) => {
@@ -208,6 +194,24 @@ impl EIP {
                 route.source
             );
         }
+    }
+
+    fn get_plaform_file_listener(&self) -> (Receiver<Event>, INotifyWatcher) {
+        let (tx, rx) = channel();
+        let mut watcher =
+            notify::recommended_watcher(move |res: notify::Result<Event>| match res {
+                Ok(event) => match event.kind {
+                    notify::EventKind::Create(_) => {
+                        if let Err(e) = tx.send(event) {
+                            debug!("error sending event for {:?}", e);
+                        }
+                    }
+                    _ => {}
+                },
+                Err(e) => debug!("err       {:?}", e),
+            })
+            .unwrap();
+        (rx, watcher)
     }
 }
 
